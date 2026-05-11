@@ -4,6 +4,20 @@ node_modules
 .env
 .env.*
 !.env.example
+.envrc
+.direnv/
+
+# Claves y secretos
+*.pem
+*.key
+*_rsa
+*_rsa.pub
+*.p12
+*.pfx
+.secrets/
+**/credentials.json
+**/serviceAccount*.json
+.npmrc
 
 # Build
 dist
