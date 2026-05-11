@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Usuario {
+  idUsuario               Int                        @id @default(autoincrement()) @map("id_usuario")
+  nombre                  String                     @db.VarChar(100)
+  email                   String                     @unique @db.VarChar(150)
+  contrasena              String                     @db.VarChar(255)
+  telefono                String?                    @db.VarChar(20)
+  fechaRegistro           DateTime?                  @default(now()) @map("fecha_registro")
+  ultimoAcceso            DateTime?                  @map("ultimo_acceso")
+  estado                  String?                    @default("activo") @db.VarChar(20)
+  torneosOrganizados      Torneo[]
+  jugadores               Jugador[]
+  resultadosRegistrados   Resultado[]                @relation("resultado_registro_usuario")
+  resultadosValidados     Resultado[]                @relation("resultado_valida_usuario")
+  notificacionesDestino   Notificacion[]
+  preferenciasNotificacion PreferenciaNotificacion?
+  historialCambios        HistorialCambios[]
+  usuarioRoles            UsuarioRol[]
+
+  @@index([email], map: "idx_email")
+  @@map("USUARIO")
+}
+
+model Rol {
+  idRol       Int         @id @default(autoincrement()) @map("id_rol")
+  nombreRol   String      @unique @map("nombre_rol") @db.VarChar(50)
+  descripcion String?     @db.Text
+  permisos    Json?
+  usuarioRoles UsuarioRol[]
+
+  @@map("ROL")
+}
+
+model UsuarioRol {
+  idUsuarioRol    Int       @id @default(autoincrement()) @map("id_usuario_rol")
+  idUsuario       Int       @map("id_usuario")
+  idRol           Int       @map("id_rol")
+  idTorneo        Int?      @map("id_torneo")
+  fechaAsignacion DateTime? @default(now()) @map("fecha_asignacion")
+  usuario         Usuario   @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade, onUpdate: NoAction)
+  rol             Rol       @relation(fields: [idRol], references: [idRol], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([idUsuario, idRol, idTorneo], map: "unique_usuario_rol_torneo")
+  @@map("USUARIO_ROL")
+}
+
+model TipoVideojuego {
+  idTipo              Int      @id @default(autoincrement()) @map("id_tipo")
+  nombre              String   @unique @db.VarChar(50)
+  descripcion         String?  @db.Text
+  numJugadoresMinimo  Int      @map("num_jugadores_minimo")
+  numJugadoresMaximo  Int      @map("num_jugadores_maximo")
+  estado              String?  @default("activo") @db.VarChar(20)
+  torneos             Torneo[]
+
+  @@map("TIPO_VIDEOJUEGO")
+}
+
+model FormatoTorneo {
+  idFormato            Int      @id @default(autoincrement()) @map("id_formato")
+  nombre               String   @unique @db.VarChar(50)
+  descripcion          String?  @db.Text
+  requiereFaseGrupos   Boolean? @default(false) @map("requiere_fase_grupos")
+  estado               String?  @default("activo") @db.VarChar(20)
+  torneos              Torneo[]
+
+  @@map("FORMATO_TORNEO")
+}
+
+model Torneo {
+  idTorneo               Int                  @id @default(autoincrement()) @map("id_torneo")
+  nombre                 String               @db.VarChar(200)
+  descripcion            String?              @db.Text
+  idTipoVideojuego       Int                  @map("id_tipo_videojuego")
+  idFormato              Int                  @map("id_formato")
+  idOrganizador          Int                  @map("id_organizador")
+  fechaInicio            DateTime             @map("fecha_inicio") @db.Date
+  fechaFin               DateTime?            @map("fecha_fin") @db.Date
+  numMaxParticipantes    Int                  @map("num_max_participantes")
+  numInscritos           Int?                 @default(0) @map("num_inscritos")
+  premioDescripcion      String?              @map("premio_descripcion") @db.Text
+  reglas                 String?              @db.Text
+  estado                 String?              @default("inscripciones_abiertas") @db.VarChar(30)
+  fechaCreacion          DateTime?            @default(now()) @map("fecha_creacion")
+  fechaActualizacion     DateTime?            @default(now()) @updatedAt @map("fecha_actualizacion")
+  tipoVideojuego         TipoVideojuego       @relation(fields: [idTipoVideojuego], references: [idTipo], onDelete: NoAction, onUpdate: NoAction)
+  formato                FormatoTorneo        @relation(fields: [idFormato], references: [idFormato], onDelete: NoAction, onUpdate: NoAction)
+  organizador            Usuario              @relation(fields: [idOrganizador], references: [idUsuario], onDelete: NoAction, onUpdate: NoAction)
+  equipos                Equipo[]
+  jugadores              Jugador[]
+  enfrentamientos        Enfrentamiento[]
+  bracket                Bracket?
+  notificaciones         Notificacion[]
+  estadisticasJugador    EstadisticaJugador[]
+  estadisticasEquipo     EstadisticaEquipo[]
+
+  @@index([idOrganizador], map: "idx_organizador")
+  @@index([estado], map: "idx_torneo_estado")
+  @@index([fechaInicio], map: "idx_fecha_inicio")
+  @@map("TORNEO")
+}
+
+model Equipo {
+  idEquipo          Int                @id @default(autoincrement()) @map("id_equipo")
+  idTorneo          Int                @map("id_torneo")
+  nombreEquipo      String             @map("nombre_equipo") @db.VarChar(100)
+  logoUrl           String?            @map("logo_url") @db.VarChar(255)
+  fechaInscripcion  DateTime?          @default(now()) @map("fecha_inscripcion")
+  estadoEquipo      String?            @default("activo") @map("estado_equipo") @db.VarChar(20)
+  torneo            Torneo             @relation(fields: [idTorneo], references: [idTorneo], onDelete: Cascade, onUpdate: NoAction)
+  jugadores         Jugador[]
+  enfrentamientosEq1 Enfrentamiento[]  @relation("enfrentamiento_equipo_1")
+  enfrentamientosEq2 Enfrentamiento[]  @relation("enfrentamiento_equipo_2")
+  resultadosGanados Resultado[]
+  estadisticasEquipo EstadisticaEquipo[]
+
+  @@index([idTorneo], map: "idx_equipo_torneo")
+  @@unique([idTorneo, nombreEquipo], map: "unique_nombre_por_torneo")
+  @@map("EQUIPO")
+}
+
+model Jugador {
+  idJugador            Int                  @id @default(autoincrement()) @map("id_jugador")
+  idUsuario            Int                  @map("id_usuario")
+  idEquipo             Int                  @map("id_equipo")
+  idTorneo             Int                  @map("id_torneo")
+  nickname             String               @db.VarChar(50)
+  esCapitan            Boolean?             @default(false) @map("es_capitan")
+  contactoPreferido    String?              @map("contacto_preferido") @db.VarChar(100)
+  estadoJugador        String?              @default("activo") @map("estado_jugador") @db.VarChar(20)
+  fechaInscripcion     DateTime?            @default(now()) @map("fecha_inscripcion")
+  usuario              Usuario              @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade, onUpdate: NoAction)
+  equipo               Equipo               @relation(fields: [idEquipo], references: [idEquipo], onDelete: Cascade, onUpdate: NoAction)
+  torneo               Torneo               @relation(fields: [idTorneo], references: [idTorneo], onDelete: Cascade, onUpdate: NoAction)
+  estadisticasJugador  EstadisticaJugador[]
+
+  @@index([idUsuario], map: "idx_usuario")
+  @@index([idEquipo], map: "idx_jugador_equipo")
+  @@unique([idTorneo, nickname], map: "unique_nickname_por_torneo")
+  @@map("JUGADOR")
+}
+
+model Enfrentamiento {
+  idEnfrentamiento            Int              @id @default(autoincrement()) @map("id_enfrentamiento")
+  idTorneo                    Int              @map("id_torneo")
+  fase                        String           @db.VarChar(50)
+  numeroRonda                 Int?             @map("numero_ronda")
+  idEquipo1                   Int?             @map("id_equipo_1")
+  idEquipo2                   Int?             @map("id_equipo_2")
+  fechaProgramada             DateTime?        @map("fecha_programada")
+  fechaJugada                 DateTime?        @map("fecha_jugada")
+  ubicacion                   String?          @db.VarChar(100)
+  estado                      String?          @default("pendiente") @db.VarChar(30)
+  idEnfrentamientoSiguiente   Int?             @map("id_enfrentamiento_siguiente")
+  posicionBracket             String?          @map("posicion_bracket") @db.VarChar(20)
+  torneo                      Torneo           @relation(fields: [idTorneo], references: [idTorneo], onDelete: Cascade, onUpdate: NoAction)
+  equipo1                     Equipo?          @relation("enfrentamiento_equipo_1", fields: [idEquipo1], references: [idEquipo], onDelete: SetNull, onUpdate: NoAction)
+  equipo2                     Equipo?          @relation("enfrentamiento_equipo_2", fields: [idEquipo2], references: [idEquipo], onDelete: SetNull, onUpdate: NoAction)
+  enfrentamientoSiguiente     Enfrentamiento?  @relation("flujo_bracket", fields: [idEnfrentamientoSiguiente], references: [idEnfrentamiento], onDelete: SetNull, onUpdate: NoAction)
+  enfrentamientosPrevios      Enfrentamiento[] @relation("flujo_bracket")
+  resultados                  Resultado[]
+  notificaciones              Notificacion[]
+
+  @@index([idTorneo], map: "idx_enfrentamiento_torneo")
+  @@index([estado], map: "idx_enfrentamiento_estado")
+  @@index([fechaProgramada], map: "idx_fecha_programada")
+  @@map("ENFRENTAMIENTO")
+}
+
+model Resultado {
+  idResultado        Int             @id @default(autoincrement()) @map("id_resultado")
+  idEnfrentamiento   Int             @unique @map("id_enfrentamiento")
+  puntosEquipo1      Int?            @map("puntos_equipo_1")
+  puntosEquipo2      Int?            @map("puntos_equipo_2")
+  idEquipoGanador    Int?            @map("id_equipo_ganador")
+  idUsuarioRegistro  Int             @map("id_usuario_registro")
+  fechaRegistro      DateTime?       @default(now()) @map("fecha_registro")
+  validado           Boolean?        @default(false)
+  idUsuarioValida    Int?            @map("id_usuario_valida")
+  fechaValidacion    DateTime?       @map("fecha_validacion")
+  comentarios        String?         @db.Text
+  evidenciaUrl       String?         @map("evidencia_url") @db.VarChar(255)
+  enfrentamiento     Enfrentamiento  @relation(fields: [idEnfrentamiento], references: [idEnfrentamiento], onDelete: Cascade, onUpdate: NoAction)
+  equipoGanador      Equipo?         @relation(fields: [idEquipoGanador], references: [idEquipo], onDelete: SetNull, onUpdate: NoAction)
+  usuarioRegistro    Usuario         @relation("resultado_registro_usuario", fields: [idUsuarioRegistro], references: [idUsuario], onDelete: NoAction, onUpdate: NoAction)
+  usuarioValida      Usuario?        @relation("resultado_valida_usuario", fields: [idUsuarioValida], references: [idUsuario], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([idEnfrentamiento], map: "idx_enfrentamiento")
+  @@index([validado], map: "idx_validado")
+  @@map("RESULTADO")
+}
+
+model Bracket {
+  idBracket          Int       @id @default(autoincrement()) @map("id_bracket")
+  idTorneo           Int       @map("id_torneo")
+  estructuraJson     Json      @map("estructura_json")
+  fechaGeneracion    DateTime? @default(now()) @map("fecha_generacion")
+  fechaActualizacion DateTime? @default(now()) @updatedAt @map("fecha_actualizacion")
+  torneo             Torneo    @relation(fields: [idTorneo], references: [idTorneo], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([idTorneo], map: "unique_torneo")
+  @@map("BRACKET")
+}
+
+model Notificacion {
+  idNotificacion     Int             @id @default(autoincrement()) @map("id_notificacion")
+  idUsuarioDestino   Int             @map("id_usuario_destino")
+  tipoNotificacion   String          @map("tipo_notificacion") @db.VarChar(50)
+  titulo             String          @db.VarChar(150)
+  mensaje            String          @db.Text
+  idTorneo           Int?            @map("id_torneo")
+  idEnfrentamiento   Int?            @map("id_enfrentamiento")
+  fechaEnvio         DateTime?       @default(now()) @map("fecha_envio")
+  leida              Boolean?        @default(false)
+  fechaLectura       DateTime?       @map("fecha_lectura")
+  canal              String?         @default("app") @db.VarChar(20)
+  usuarioDestino     Usuario         @relation(fields: [idUsuarioDestino], references: [idUsuario], onDelete: Cascade, onUpdate: NoAction)
+  torneo             Torneo?         @relation(fields: [idTorneo], references: [idTorneo], onDelete: Cascade, onUpdate: NoAction)
+  enfrentamiento     Enfrentamiento? @relation(fields: [idEnfrentamiento], references: [idEnfrentamiento], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([idUsuarioDestino], map: "idx_usuario_destino")
+  @@index([leida], map: "idx_leida")
+  @@index([fechaEnvio], map: "idx_fecha_envio")
+  @@map("NOTIFICACION")
+}
+
+model PreferenciaNotificacion {
+  idPreferencia             Int      @id @default(autoincrement()) @map("id_preferencia")
+  idUsuario                 Int      @map("id_usuario")
+  notifNuevoEnfrentamiento  Boolean? @default(true) @map("notif_nuevo_enfrentamiento")
+  notifResultadoValidado    Boolean? @default(true) @map("notif_resultado_validado")
+  notifCambioFase           Boolean? @default(true) @map("notif_cambio_fase")
+  notifRecordatorio         Boolean? @default(true) @map("notif_recordatorio")
+  canalPreferido            String?  @default("app") @map("canal_preferido") @db.VarChar(20)
+  usuario                   Usuario  @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([idUsuario], map: "unique_usuario")
+  @@map("PREFERENCIA_NOTIFICACION")
+}
+
+model HistorialCambios {
+  idCambio          Int       @id @default(autoincrement()) @map("id_cambio")
+  tablaAfectada     String    @map("tabla_afectada") @db.VarChar(50)
+  idRegistro        Int       @map("id_registro")
+  campoModificado   String    @map("campo_modificado") @db.VarChar(50)
+  valorAnterior     String?   @map("valor_anterior") @db.Text
+  valorNuevo        String?   @map("valor_nuevo") @db.Text
+  tipoOperacion     String    @map("tipo_operacion") @db.VarChar(20)
+  idUsuarioModifica Int?      @map("id_usuario_modifica")
+  fechaModificacion DateTime? @default(now()) @map("fecha_modificacion")
+  razonCambio       String?   @map("razon_cambio") @db.VarChar(255)
+  usuarioModifica   Usuario?  @relation(fields: [idUsuarioModifica], references: [idUsuario], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([tablaAfectada, idRegistro], map: "idx_tabla_registro")
+  @@index([fechaModificacion], map: "idx_fecha")
+  @@map("HISTORIAL_CAMBIOS")
+}
+
+model EstadisticaJugador {
+  idEstadistica    Int      @id @default(autoincrement()) @map("id_estadistica")
+  idJugador        Int      @map("id_jugador")
+  idTorneo         Int      @map("id_torneo")
+  partidasJugadas  Int?     @default(0) @map("partidas_jugadas")
+  partidasGanadas  Int?     @default(0) @map("partidas_ganadas")
+  partidasPerdidas Int?     @default(0) @map("partidas_perdidas")
+  puntosTotales    Int?     @default(0) @map("puntos_totales")
+  posicionFinal    Int?     @map("posicion_final")
+  jugador          Jugador  @relation(fields: [idJugador], references: [idJugador], onDelete: Cascade, onUpdate: NoAction)
+  torneo           Torneo   @relation(fields: [idTorneo], references: [idTorneo], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([idJugador], map: "idx_jugador")
+  @@index([idTorneo], map: "idx_estadistica_jugador_torneo")
+  @@unique([idJugador, idTorneo], map: "unique_jugador_torneo")
+  @@map("ESTADISTICA_JUGADOR")
+}
+
+model EstadisticaEquipo {
+  idEstadistica     Int      @id @default(autoincrement()) @map("id_estadistica")
+  idEquipo          Int      @map("id_equipo")
+  idTorneo          Int      @map("id_torneo")
+  partidasJugadas   Int?     @default(0) @map("partidas_jugadas")
+  partidasGanadas   Int?     @default(0) @map("partidas_ganadas")
+  partidasPerdidas  Int?     @default(0) @map("partidas_perdidas")
+  puntosFavor       Int?     @default(0) @map("puntos_favor")
+  puntosContra      Int?     @default(0) @map("puntos_contra")
+  diferenciaPuntos  Int?     @default(0) @map("diferencia_puntos")
+  posicionFinal     Int?     @map("posicion_final")
+  equipo            Equipo   @relation(fields: [idEquipo], references: [idEquipo], onDelete: Cascade, onUpdate: NoAction)
+  torneo            Torneo   @relation(fields: [idTorneo], references: [idTorneo], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([idEquipo], map: "idx_estadistica_equipo_equipo")
+  @@index([idTorneo], map: "idx_estadistica_equipo_torneo")
+  @@unique([idEquipo, idTorneo], map: "unique_equipo_torneo")
+  @@map("ESTADISTICA_EQUIPO")
+}
+
+model ConfiguracionSistema {
+  idConfig          Int       @id @default(autoincrement()) @map("id_config")
+  clave             String    @unique @db.VarChar(100)
+  valor             String    @db.Text
+  tipoDato          String?   @map("tipo_dato") @db.VarChar(20)
+  descripcion       String?   @db.Text
+  fechaModificacion DateTime? @default(now()) @updatedAt @map("fecha_modificacion")
+
+  @@map("CONFIGURACION_SISTEMA")
+}

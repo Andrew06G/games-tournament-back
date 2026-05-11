@@ -1,0 +1,18 @@
+node_modules
+
+# Credenciales y entorno
+.env
+.env.*
+!.env.example
+
+# Build
+dist
+
+# Prisma client generado (se regenera con prisma generate)
+/generated/prisma
+
+# Logs y cobertura
+*.log
+logs
+coverage
+.DS_Store
