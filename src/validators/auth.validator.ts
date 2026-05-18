@@ -4,6 +4,8 @@ export const registerBodySchema = z.object({
   nombre: z.string().min(1).max(100),
   email: z.string().email().max(150),
   contrasena: z.string().min(8).max(72),
+  /** ID del rol global (tabla ROL) elegido en el registro; debe estar en la lista permitida del servidor. */
+  idRol: z.coerce.number().int().positive(),
   telefono: z.string().max(20).optional(),
 });
 

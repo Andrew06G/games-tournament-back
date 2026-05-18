@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CUPOS_BRACKET } from "../utils/fasesTorneo";
 
 /**
  * Esquemas Zod para crear/actualizar torneos.
@@ -11,7 +12,13 @@ export const createTorneoBodySchema = z.object({
   idFormato: z.number().int().positive(),
   fechaInicio: z.string(),
   fechaFin: z.string().optional(),
-  numMaxParticipantes: z.number().int().positive(),
+  numMaxParticipantes: z
+    .number()
+    .int()
+    .refine(
+      (n) => (CUPOS_BRACKET as readonly number[]).includes(n),
+      "El cupo debe ser 2, 4, 8, 16 o 32 equipos (eliminatoria)",
+    ),
   premioDescripcion: z.string().optional(),
   reglas: z.string().optional(),
 });

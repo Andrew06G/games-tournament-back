@@ -4,6 +4,18 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 
 const router = Router();
 
+router.patch(
+  "/:id",
+  authMiddleware,
+  equipoController.updateEquipo,
+);
+
+router.delete(
+  "/:id",
+  authMiddleware,
+  equipoController.deleteEquipo,
+);
+
 router.post(
   "/:id/jugadores",
   authMiddleware,

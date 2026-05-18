@@ -22,7 +22,8 @@ export async function updateJugador(
 
   const torneoId = jugador.equipo.torneo.idTorneo;
   const canOrg = await userCanManageTorneo(actorUserId, torneoId);
-  const isSelf = jugador.idUsuario === actorUserId;
+  const isSelf =
+    jugador.idUsuario != null && jugador.idUsuario === actorUserId;
   if (!canOrg && !isSelf) {
     throw new HttpError(403, "No puedes modificar a otro jugador");
   }

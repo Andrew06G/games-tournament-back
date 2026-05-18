@@ -1,7 +1,17 @@
 import { Prisma } from "../../generated/prisma/client";
 import { getPrisma } from "../config/database";
 import { HttpError } from "../utils/httpError";
+import { userCanManageTorneo } from "../utils/torneoAcl";
 import { parseDateOnlyInput, startOfUtcDay } from "../utils/dates";
+import {
+  codigoFaseInicialPorCupo,
+  esCupoBracketValido,
+} from "../utils/fasesTorneo";
+import { generarBracketSkeleton } from "./bracketGenerator.service";
+import {
+  notificarParticipantesTorneo,
+} from "./notificacion.service";
+import { registrarCambio } from "./historial.service";
 import type {
   CreateTorneoBody,
   InscribirEquipoBody,
@@ -45,6 +55,9 @@ const torneoListInclude = {
   organizador: {
     select: { idUsuario: true, nombre: true, email: true },
   },
+  faseInicial: {
+    select: { idFase: true, codigo: true, nombre: true, numEquipos: true },
+  },
   _count: { select: { equipos: true, enfrentamientos: true } },
 } satisfies Prisma.TorneoInclude;
 
@@ -79,6 +92,7 @@ export async function getTorneoById(idTorneo: number) {
           jugadores: {
             where: { estadoJugador: "activo" },
             select: {
+              idJugador: true,
               idUsuario: true,
               nickname: true,
               esCapitan: true,
@@ -133,7 +147,25 @@ export async function createTorneo(
     throw new HttpError(400, "La fecha de fin no puede ser anterior al inicio");
   }
 
-  return prisma.torneo.create({
+  if (!esCupoBracketValido(body.numMaxParticipantes)) {
+    throw new HttpError(
+      400,
+      "El cupo de equipos debe ser 2, 4, 8, 16 o 32 para bracket de eliminación",
+    );
+  }
+
+  const codigoFase = codigoFaseInicialPorCupo(body.numMaxParticipantes);
+  const faseInicial = await prisma.faseTorneo.findUnique({
+    where: { codigo: codigoFase },
+  });
+  if (!faseInicial) {
+    throw new HttpError(
+      500,
+      "Catálogo de fases incompleto. Ejecute las migraciones y el seed.",
+    );
+  }
+
+  const torneo = await prisma.torneo.create({
     data: {
       nombre: body.nombre.trim(),
       descripcion: body.descripcion?.trim() ?? null,
@@ -143,13 +175,23 @@ export async function createTorneo(
       fechaInicio,
       fechaFin,
       numMaxParticipantes: body.numMaxParticipantes,
+      idFaseInicial: faseInicial.idFase,
       numInscritos: 0,
       premioDescripcion: body.premioDescripcion?.trim() ?? null,
       reglas: body.reglas?.trim() ?? null,
       estado: ESTADO_INSCRIPCIONES,
     },
-    include: torneoListInclude,
+    include: {
+      ...torneoListInclude,
+      faseInicial: {
+        select: { idFase: true, codigo: true, nombre: true, numEquipos: true },
+      },
+    },
   });
+
+  await generarBracketSkeleton(torneo.idTorneo);
+
+  return torneo;
 }
 
 export async function updateTorneo(
@@ -183,7 +225,25 @@ export async function updateTorneo(
   if (body.reglas !== undefined) {
     data.reglas = body.reglas === null ? null : body.reglas.trim();
   }
-  if (body.estado !== undefined) data.estado = body.estado;
+  if (body.estado !== undefined) {
+    data.estado = body.estado;
+    if (body.estado === "en_curso") {
+      void notificarParticipantesTorneo(idTorneo, {
+        tipo: "torneo_inicio",
+        titulo: "Torneo en curso",
+        mensaje: `El torneo "${actual.nombre}" ha comenzado.`,
+        idTorneo,
+      });
+    }
+    if (body.estado === "finalizado") {
+      void notificarParticipantesTorneo(idTorneo, {
+        tipo: "torneo_fin",
+        titulo: "Torneo finalizado",
+        mensaje: `El torneo "${actual.nombre}" ha finalizado.`,
+        idTorneo,
+      });
+    }
+  }
 
   if (body.fechaInicio !== undefined) {
     const fi = parseDateOnlyInput(body.fechaInicio);
@@ -256,10 +316,18 @@ export async function inscribirEquipo(
   if (!torneo) {
     throw new HttpError(404, "Torneo no encontrado");
   }
-  if (torneo.estado !== ESTADO_INSCRIPCIONES) {
+  const esOrganizador = await userCanManageTorneo(userId, idTorneo);
+
+  if (!esOrganizador && torneo.estado !== ESTADO_INSCRIPCIONES) {
     throw new HttpError(
       400,
       "Solo se pueden inscribir equipos cuando el torneo tiene inscripciones abiertas",
+    );
+  }
+  if (esOrganizador && torneo.estado && ESTADOS_NO_EDITAR.has(torneo.estado)) {
+    throw new HttpError(
+      400,
+      "No se pueden inscribir equipos en un torneo finalizado o cancelado",
     );
   }
 
@@ -270,19 +338,27 @@ export async function inscribirEquipo(
     throw new HttpError(400, "Capacidad máxima de participantes alcanzada");
   }
 
-  const yaInscrito = await prisma.jugador.findFirst({
-    where: { idTorneo, idUsuario: userId },
-  });
-  if (yaInscrito) {
-    throw new HttpError(
-      409,
-      "Ya participas en este torneo con otro equipo o registro",
-    );
+  if (!esOrganizador) {
+    const yaInscrito = await prisma.jugador.findFirst({
+      where: { idTorneo, idUsuario: userId },
+    });
+    if (yaInscrito) {
+      throw new HttpError(
+        409,
+        "Ya participas en este torneo con otro equipo o registro",
+      );
+    }
   }
 
   const nicknameCapitan =
     body.nickname?.trim() ||
-    body.nombreEquipo.trim().slice(0, 50);
+    (esOrganizador ? "" : body.nombreEquipo.trim().slice(0, 50));
+  if (esOrganizador && nicknameCapitan.length < 1) {
+    throw new HttpError(
+      400,
+      "Indique el nickname del capitán o representante del equipo",
+    );
+  }
   const dupNick = await prisma.jugador.findFirst({
     where: { idTorneo, nickname: nicknameCapitan },
   });
@@ -306,7 +382,7 @@ export async function inscribirEquipo(
 
     const capitan = await prisma.jugador.create({
       data: {
-        idUsuario: userId,
+        idUsuario: esOrganizador ? null : userId,
         idEquipo: equipo.idEquipo,
         idTorneo,
         nickname: nicknameCapitan,
@@ -314,6 +390,16 @@ export async function inscribirEquipo(
         estadoJugador: "activo",
         contactoPreferido: body.contactoPreferido?.trim() || null,
       },
+    });
+
+    void registrarCambio({
+      tablaAfectada: "EQUIPO",
+      idRegistro: equipo.idEquipo,
+      campoModificado: "inscripcion",
+      valorAnterior: null,
+      valorNuevo: equipo.nombreEquipo,
+      tipoOperacion: "insert",
+      idUsuarioModifica: userId,
     });
 
     return { equipo, jugadorCapitan: capitan };

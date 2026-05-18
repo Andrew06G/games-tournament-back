@@ -10,7 +10,7 @@ async function main(): Promise<void> {
   const roles = [
     {
       nombreRol: "organizador",
-      descripcion: "Puede crear y gestionar torneos",
+      descripcion: "Organizador: crea torneos, valida resultados y gestiona participantes",
       permisos: {
         crear_torneo: true,
         modificar_torneo: true,
@@ -20,11 +20,21 @@ async function main(): Promise<void> {
     },
     {
       nombreRol: "jugador",
-      descripcion: "Puede participar en torneos",
+      descripcion: "Participante: puede inscribirse en equipos y registrar resultados",
       permisos: {
         inscribirse: true,
         registrar_resultado: true,
         ver_bracket: true,
+      },
+    },
+    {
+      nombreRol: "lider_equipo",
+      descripcion: "Líder de equipo: coordina la inscripción y la plantilla de su equipo",
+      permisos: {
+        inscribirse: true,
+        registrar_resultado: true,
+        ver_bracket: true,
+        liderar_equipo: true,
       },
     },
     {

@@ -75,6 +75,20 @@ model FormatoTorneo {
   @@map("FORMATO_TORNEO")
 }
 
+/** Fases de eliminación directa (catálogo). numEquipos = cupo en esa ronda. */
+model FaseTorneo {
+  idFase       Int              @id @default(autoincrement()) @map("id_fase")
+  codigo       String           @unique @db.VarChar(30)
+  nombre       String           @db.VarChar(50)
+  orden        Int
+  numEquipos   Int              @map("num_equipos")
+  estado       String?          @default("activo") @db.VarChar(20)
+  torneosInicio Torneo[]        @relation("torneo_fase_inicial")
+  enfrentamientos Enfrentamiento[]
+
+  @@map("FASE_TORNEO")
+}
+
 model Torneo {
   idTorneo               Int                  @id @default(autoincrement()) @map("id_torneo")
   nombre                 String               @db.VarChar(200)
@@ -85,6 +99,7 @@ model Torneo {
   fechaInicio            DateTime             @map("fecha_inicio") @db.Date
   fechaFin               DateTime?            @map("fecha_fin") @db.Date
   numMaxParticipantes    Int                  @map("num_max_participantes")
+  idFaseInicial          Int?                 @map("id_fase_inicial")
   numInscritos           Int?                 @default(0) @map("num_inscritos")
   premioDescripcion      String?              @map("premio_descripcion") @db.Text
   reglas                 String?              @db.Text
@@ -94,6 +109,7 @@ model Torneo {
   tipoVideojuego         TipoVideojuego       @relation(fields: [idTipoVideojuego], references: [idTipo], onDelete: NoAction, onUpdate: NoAction)
   formato                FormatoTorneo        @relation(fields: [idFormato], references: [idFormato], onDelete: NoAction, onUpdate: NoAction)
   organizador            Usuario              @relation(fields: [idOrganizador], references: [idUsuario], onDelete: NoAction, onUpdate: NoAction)
+  faseInicial            FaseTorneo?          @relation("torneo_fase_inicial", fields: [idFaseInicial], references: [idFase], onDelete: NoAction, onUpdate: NoAction)
   equipos                Equipo[]
   jugadores              Jugador[]
   enfrentamientos        Enfrentamiento[]
@@ -129,7 +145,8 @@ model Equipo {
 
 model Jugador {
   idJugador            Int                  @id @default(autoincrement()) @map("id_jugador")
-  idUsuario            Int                  @map("id_usuario")
+  /** Null = participante invitado (solo nickname en plantilla, sin cuenta en la app). */
+  idUsuario            Int?                 @map("id_usuario")
   idEquipo             Int                  @map("id_equipo")
   idTorneo             Int                  @map("id_torneo")
   nickname             String               @db.VarChar(50)
@@ -137,7 +154,7 @@ model Jugador {
   contactoPreferido    String?              @map("contacto_preferido") @db.VarChar(100)
   estadoJugador        String?              @default("activo") @map("estado_jugador") @db.VarChar(20)
   fechaInscripcion     DateTime?            @default(now()) @map("fecha_inscripcion")
-  usuario              Usuario              @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade, onUpdate: NoAction)
+  usuario              Usuario?             @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade, onUpdate: NoAction)
   equipo               Equipo               @relation(fields: [idEquipo], references: [idEquipo], onDelete: Cascade, onUpdate: NoAction)
   torneo               Torneo               @relation(fields: [idTorneo], references: [idTorneo], onDelete: Cascade, onUpdate: NoAction)
   estadisticasJugador  EstadisticaJugador[]
@@ -151,6 +168,7 @@ model Jugador {
 model Enfrentamiento {
   idEnfrentamiento            Int              @id @default(autoincrement()) @map("id_enfrentamiento")
   idTorneo                    Int              @map("id_torneo")
+  idFase                      Int?             @map("id_fase")
   fase                        String           @db.VarChar(50)
   numeroRonda                 Int?             @map("numero_ronda")
   idEquipo1                   Int?             @map("id_equipo_1")
@@ -162,6 +180,7 @@ model Enfrentamiento {
   idEnfrentamientoSiguiente   Int?             @map("id_enfrentamiento_siguiente")
   posicionBracket             String?          @map("posicion_bracket") @db.VarChar(20)
   torneo                      Torneo           @relation(fields: [idTorneo], references: [idTorneo], onDelete: Cascade, onUpdate: NoAction)
+  faseTorneo                  FaseTorneo?      @relation(fields: [idFase], references: [idFase], onDelete: SetNull, onUpdate: NoAction)
   equipo1                     Equipo?          @relation("enfrentamiento_equipo_1", fields: [idEquipo1], references: [idEquipo], onDelete: SetNull, onUpdate: NoAction)
   equipo2                     Equipo?          @relation("enfrentamiento_equipo_2", fields: [idEquipo2], references: [idEquipo], onDelete: SetNull, onUpdate: NoAction)
   enfrentamientoSiguiente     Enfrentamiento?  @relation("flujo_bracket", fields: [idEnfrentamientoSiguiente], references: [idEnfrentamiento], onDelete: SetNull, onUpdate: NoAction)

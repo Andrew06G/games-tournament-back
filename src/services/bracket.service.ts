@@ -1,5 +1,6 @@
 import { getPrisma } from "../config/database";
 import { HttpError } from "../utils/httpError";
+import { generarBracketSkeleton } from "./bracketGenerator.service";
 
 export async function getBracketByTorneoId(idTorneo: number) {
   const prisma = getPrisma();
@@ -15,9 +16,21 @@ export async function getBracketByTorneoId(idTorneo: number) {
     throw new HttpError(404, "Torneo no encontrado");
   }
 
-  const bracket = await prisma.bracket.findUnique({
+  let bracket = await prisma.bracket.findUnique({
     where: { idTorneo },
   });
+
+  const numEnf = await prisma.enfrentamiento.count({ where: { idTorneo } });
+  if (numEnf === 0) {
+    const torneoFull = await prisma.torneo.findUnique({
+      where: { idTorneo },
+      select: { idFaseInicial: true },
+    });
+    if (torneoFull?.idFaseInicial) {
+      await generarBracketSkeleton(idTorneo);
+      bracket = await prisma.bracket.findUnique({ where: { idTorneo } });
+    }
+  }
 
   return {
     torneo,

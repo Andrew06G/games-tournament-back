@@ -33,3 +33,40 @@ export async function userCanManageTorneo(
   if (torneo?.idOrganizador === userId) return true;
   return false;
 }
+
+/** Rol global lider_equipo con al menos un equipo activo en el torneo. */
+export async function userIsLiderEquipoEnTorneo(
+  userId: number,
+  torneoId: number,
+): Promise<boolean> {
+  const prisma = getPrisma();
+  const [rolLider, miembro] = await Promise.all([
+    prisma.usuarioRol.findFirst({
+      where: {
+        idUsuario: userId,
+        idTorneo: null,
+        rol: { nombreRol: "lider_equipo" },
+      },
+    }),
+    prisma.jugador.findFirst({
+      where: {
+        idTorneo: torneoId,
+        idUsuario: userId,
+        estadoJugador: "activo",
+      },
+    }),
+  ]);
+  return rolLider !== null && miembro !== null;
+}
+
+/**
+ * Organizador del torneo o líder de equipo inscrito: puede registrar/editar
+ * resultados de cualquier enfrentamiento del torneo (modo académico).
+ */
+export async function userCanRegistrarResultadosTorneo(
+  userId: number,
+  torneoId: number,
+): Promise<boolean> {
+  if (await userCanManageTorneo(userId, torneoId)) return true;
+  return userIsLiderEquipoEnTorneo(userId, torneoId);
+}

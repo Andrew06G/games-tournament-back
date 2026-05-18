@@ -82,10 +82,11 @@ Variables en `.env`: `JWT_SECRET`, `JWT_REFRESH_SECRET`, `JWT_EXPIRES_IN`, `JWT_
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `POST` | `/api/auth/register` | Registro (asigna rol global **jugador**) |
+| `POST` | `/api/auth/register` | Body `nombre`, `email`, `contrasena`, **`idRol`** (rol global elegido; ver `GET /api/catalogos/roles-registro`) |
 | `POST` | `/api/auth/login` | Login → `accessToken`, `refreshToken`, usuario sin contraseña |
 | `POST` | `/api/auth/refresh` | Body `{ "refreshToken" }` → nuevo `accessToken` |
 | `GET` | `/api/auth/me` | Header `Authorization: Bearer <accessToken>` → perfil actual |
+| `GET` | `/api/catalogos/roles-registro` | Roles disponibles en el formulario de registro (público) |
 
 Ejemplos:
 

@@ -10,4 +10,16 @@ router.post(
   enfrentamientoController.registrarResultado,
 );
 
+router.patch(
+  "/:id/slot",
+  authMiddleware,
+  enfrentamientoController.asignarEquipoSlot,
+);
+
+router.delete(
+  "/:id/asignacion",
+  authMiddleware,
+  enfrentamientoController.limpiarAsignacion,
+);
+
 export default router;

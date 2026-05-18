@@ -9,6 +9,13 @@ import {
 } from "../utils/jwtTokens";
 import type { LoginBody, RefreshBody, RegisterBody } from "../validators/auth.validator";
 
+/** Coincide con GET /catalogos/roles-registro: solo estos roles se pueden asignar en el alta. */
+const ROLES_PERMITIDOS_REGISTRO = new Set([
+  "organizador",
+  "jugador",
+  "lider_equipo",
+]);
+
 const usuarioPublicSelect = {
   idUsuario: true,
   nombre: true,
@@ -85,13 +92,16 @@ export async function register(
   const prisma = getPrisma();
   const email = body.email.trim().toLowerCase();
 
-  const rolJugador = await prisma.rol.findUnique({
-    where: { nombreRol: "jugador" },
+  const rolElegido = await prisma.rol.findUnique({
+    where: { idRol: body.idRol },
   });
-  if (!rolJugador) {
+  if (!rolElegido) {
+    throw new HttpError(400, "El rol seleccionado no existe");
+  }
+  if (!ROLES_PERMITIDOS_REGISTRO.has(rolElegido.nombreRol)) {
     throw new HttpError(
-      500,
-      'Rol "jugador" no existe en la BD. Ejecute el seed: npm run prisma:seed',
+      400,
+      "Ese rol no está disponible para el registro público",
     );
   }
 
@@ -108,7 +118,7 @@ export async function register(
           : {}),
         usuarioRoles: {
           create: {
-            idRol: rolJugador.idRol,
+            idRol: rolElegido.idRol,
             idTorneo: null,
           },
         },
