@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import catalogoRoutes from "./catalogo.routes";
 import authRoutes from "./auth.routes";
 import enfrentamientoRoutes from "./enfrentamiento.routes";
@@ -11,7 +11,7 @@ import usuarioRoutes from "./usuario.routes";
 
 const router = Router();
 
-router.get("/health", (_req, res) => {
+router.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", message: "Server is running" });
 });
 

@@ -1,4 +1,9 @@
-import { Router } from "express";
+import {
+  Router,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import { getPrisma } from "../config/database";
 
 const router = Router();
@@ -6,7 +11,7 @@ const router = Router();
 /** Roles que un usuario nuevo puede elegir al registrarse (orden de la lista). */
 const ROLES_REGISTRO = ["organizador", "jugador", "lider_equipo"] as const;
 
-router.get("/tipos-videojuego", async (_req, res, next) => {
+router.get("/tipos-videojuego", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const tipos = await prisma.tipoVideojuego.findMany({
@@ -25,7 +30,7 @@ router.get("/tipos-videojuego", async (_req, res, next) => {
   }
 });
 
-router.get("/roles-registro", async (_req, res, next) => {
+router.get("/roles-registro", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const todos = await prisma.rol.findMany({
@@ -49,7 +54,7 @@ router.get("/roles-registro", async (_req, res, next) => {
   }
 });
 
-router.get("/fases-torneo", async (_req, res, next) => {
+router.get("/fases-torneo", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const fases = await prisma.faseTorneo.findMany({
@@ -70,7 +75,7 @@ router.get("/fases-torneo", async (_req, res, next) => {
 });
 
 /** Fase inicial automática según cupo (2, 4, 8, 16, 32). */
-router.get("/fase-inicial-por-cupo/:cupo", async (req, res, next) => {
+router.get("/fase-inicial-por-cupo/:cupo", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const cupo = Number(req.params.cupo);
     const prisma = getPrisma();
@@ -95,7 +100,7 @@ router.get("/fase-inicial-por-cupo/:cupo", async (req, res, next) => {
   }
 });
 
-router.get("/formatos-torneo", async (_req, res, next) => {
+router.get("/formatos-torneo", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const formatos = await prisma.formatoTorneo.findMany({
