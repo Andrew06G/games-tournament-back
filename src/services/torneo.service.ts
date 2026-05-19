@@ -8,9 +8,6 @@ import {
   esCupoBracketValido,
 } from "../utils/fasesTorneo";
 import { generarBracketSkeleton } from "./bracketGenerator.service";
-import {
-  notificarParticipantesTorneo,
-} from "./notificacion.service";
 import { registrarCambio } from "./historial.service";
 import type {
   CreateTorneoBody,
@@ -227,22 +224,6 @@ export async function updateTorneo(
   }
   if (body.estado !== undefined) {
     data.estado = body.estado;
-    if (body.estado === "en_curso") {
-      void notificarParticipantesTorneo(idTorneo, {
-        tipo: "torneo_inicio",
-        titulo: "Torneo en curso",
-        mensaje: `El torneo "${actual.nombre}" ha comenzado.`,
-        idTorneo,
-      });
-    }
-    if (body.estado === "finalizado") {
-      void notificarParticipantesTorneo(idTorneo, {
-        tipo: "torneo_fin",
-        titulo: "Torneo finalizado",
-        mensaje: `El torneo "${actual.nombre}" ha finalizado.`,
-        idTorneo,
-      });
-    }
   }
 
   if (body.fechaInicio !== undefined) {
@@ -350,9 +331,17 @@ export async function inscribirEquipo(
     }
   }
 
-  const nicknameCapitan =
-    body.nickname?.trim() ||
-    (esOrganizador ? "" : body.nombreEquipo.trim().slice(0, 50));
+  let nicknameCapitan = body.nickname?.trim() ?? "";
+  if (!esOrganizador && nicknameCapitan.length < 1) {
+    const usuario = await prisma.usuario.findUnique({
+      where: { idUsuario: userId },
+      select: { nickname: true },
+    });
+    nicknameCapitan = usuario?.nickname?.trim() ?? "";
+  }
+  if (!esOrganizador && nicknameCapitan.length < 1) {
+    nicknameCapitan = body.nombreEquipo.trim().slice(0, 50);
+  }
   if (esOrganizador && nicknameCapitan.length < 1) {
     throw new HttpError(
       400,

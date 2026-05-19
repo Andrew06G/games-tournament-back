@@ -29,6 +29,7 @@ async function enviarEmailNotificacion(
 
 export type TipoNotificacion =
   | "enfrentamiento_asignado"
+  | "campeon_torneo"
   | "resultado_publicado"
   | "torneo_inicio"
   | "torneo_fin";
@@ -53,14 +54,15 @@ export async function crearNotificacion(params: {
       return;
     }
     if (
-      params.tipo === "resultado_publicado" &&
-      pref.notifResultadoValidado === false
+      params.tipo === "campeon_torneo" &&
+      pref.notifCambioFase === false
     ) {
       return;
     }
     if (
-      (params.tipo === "torneo_inicio" || params.tipo === "torneo_fin") &&
-      pref.notifCambioFase === false
+      params.tipo === "resultado_publicado" ||
+      params.tipo === "torneo_inicio" ||
+      params.tipo === "torneo_fin"
     ) {
       return;
     }
@@ -159,7 +161,6 @@ export async function notificarJugadoresEquipo(
   const jugadores = await prisma.jugador.findMany({
     where: {
       idEquipo,
-      estadoJugador: "activo",
       idUsuario: { not: null },
     },
     select: { idUsuario: true },
@@ -176,6 +177,52 @@ export async function notificarJugadoresEquipo(
       crearNotificacion({ ...payload, idUsuarioDestino }),
     ),
   );
+}
+
+/** Avisa a ambos equipos cuando la partida ya tiene los dos rivales asignados. */
+export async function notificarEnfrentamientoProgramado(
+  idEnfrentamiento: number,
+): Promise<void> {
+  const prisma = getPrisma();
+  const enf = await prisma.enfrentamiento.findUnique({
+    where: { idEnfrentamiento },
+    include: {
+      equipo1: { select: { idEquipo: true, nombreEquipo: true } },
+      equipo2: { select: { idEquipo: true, nombreEquipo: true } },
+    },
+  });
+  if (!enf?.idEquipo1 || !enf.idEquipo2 || !enf.equipo1 || !enf.equipo2) {
+    return;
+  }
+
+  const fase = enf.fase?.trim() || "del torneo";
+  const titulo = "Enfrentamiento asignado";
+  const base = {
+    tipo: "enfrentamiento_asignado" as const,
+    titulo,
+    idTorneo: enf.idTorneo,
+    idEnfrentamiento,
+  };
+
+  await Promise.all([
+    notificarJugadoresEquipo(enf.idEquipo1, {
+      ...base,
+      mensaje: `Tu enfrentamiento de la fase ${fase} ha sido asignado. Juegas contra ${enf.equipo2.nombreEquipo}.`,
+    }),
+    notificarJugadoresEquipo(enf.idEquipo2, {
+      ...base,
+      mensaje: `Tu enfrentamiento de la fase ${fase} ha sido asignado. Juegas contra ${enf.equipo1.nombreEquipo}.`,
+    }),
+  ]);
+}
+
+export async function countNotificacionesNoLeidas(
+  idUsuario: number,
+): Promise<number> {
+  const prisma = getPrisma();
+  return prisma.notificacion.count({
+    where: { idUsuarioDestino: idUsuario, leida: false },
+  });
 }
 
 export async function notificarParticipantesTorneo(

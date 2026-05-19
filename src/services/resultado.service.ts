@@ -7,8 +7,8 @@ import {
   resolverIdGanadorValidado,
 } from "./bracketAdvance.service";
 import {
+  notificarEnfrentamientoProgramado,
   notificarJugadoresEquipo,
-  notificarParticipantesTorneo,
 } from "./notificacion.service";
 
 export async function validarResultado(idResultado: number, userId: number) {
@@ -130,36 +130,20 @@ export async function validarResultado(idResultado: number, userId: number) {
     select: { nombre: true },
   });
 
-  if (actualizado.esFinal) {
-    void notificarParticipantesTorneo(enf.idTorneo, {
-      tipo: "torneo_fin",
-      titulo: "Torneo finalizado",
-      mensaje: `El torneo "${torneoRow?.nombre ?? "torneo"}" ha concluido. ¡Gracias por participar!`,
-      idTorneo: enf.idTorneo,
+  if (actualizado.esFinal && actualizado.idGanador != null) {
+    const equipoCampeon = await prisma.equipo.findUnique({
+      where: { idEquipo: actualizado.idGanador },
+      select: { nombreEquipo: true },
     });
-  }
-  const p1 = resultado.puntosEquipo1;
-  const p2 = resultado.puntosEquipo2;
-  const marcador =
-    p1 != null && p2 != null ? `${p1} - ${p2}` : "resultado validado";
-  const msg = `Resultado validado (${marcador}) en ${torneoRow?.nombre ?? "torneo"}.`;
-  if (e1) {
-    void notificarJugadoresEquipo(e1, {
-      tipo: "resultado_publicado",
-      titulo: "Resultado publicado",
-      mensaje: msg,
+    void notificarJugadoresEquipo(actualizado.idGanador, {
+      tipo: "campeon_torneo",
+      titulo: "¡Campeones del torneo!",
+      mensaje: `¡Felicitaciones a ${equipoCampeon?.nombreEquipo ?? "su equipo"}! Han sido campeones de "${torneoRow?.nombre ?? "el torneo"}".`,
       idTorneo: enf.idTorneo,
       idEnfrentamiento: enf.idEnfrentamiento,
     });
-  }
-  if (e2) {
-    void notificarJugadoresEquipo(e2, {
-      tipo: "resultado_publicado",
-      titulo: "Resultado publicado",
-      mensaje: msg,
-      idTorneo: enf.idTorneo,
-      idEnfrentamiento: enf.idEnfrentamiento,
-    });
+  } else if (enf.idEnfrentamientoSiguiente != null) {
+    void notificarEnfrentamientoProgramado(enf.idEnfrentamientoSiguiente);
   }
 
   const io = getSocketIO();

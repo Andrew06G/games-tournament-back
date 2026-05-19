@@ -11,7 +11,7 @@ import {
   intentarEmparejarUltimosDosEquipos,
 } from "./bracketGenerator.service";
 import { ganadorYaAsignadoEnSiguiente } from "./bracketAdvance.service";
-import { notificarJugadoresEquipo } from "./notificacion.service";
+import { notificarEnfrentamientoProgramado } from "./notificacion.service";
 import type { AsignarEquipoSlotBody } from "../validators/enfrentamiento.validator";
 import type { CrearEnfrentamientoBody } from "../validators/enfrentamiento.validator";
 import type { RegistrarResultadoBody } from "../validators/resultado.validator";
@@ -150,14 +150,9 @@ export async function asignarEquipoASlot(
     include: enfInclude,
   });
 
-  const torneoNombre = enf.torneo.nombre;
-  void notificarJugadoresEquipo(body.idEquipo, {
-    tipo: "enfrentamiento_asignado",
-    titulo: "Nuevo enfrentamiento",
-    mensaje: `Su equipo fue asignado a un enfrentamiento (${enf.fase}) en ${torneoNombre}.`,
-    idTorneo: enf.idTorneo,
-    idEnfrentamiento,
-  });
+  if (actualizado.idEquipo1 != null && actualizado.idEquipo2 != null) {
+    void notificarEnfrentamientoProgramado(idEnfrentamiento);
+  }
 
   return actualizado;
 }
@@ -242,24 +237,11 @@ export async function crearEnfrentamientoEnTorneo(
       include: enfInclude,
     });
 
-    const msg = `Partida programada en ${actualizado.fase} (${torneo.nombre}).`;
-    void notificarJugadoresEquipo(e1, {
-      tipo: "enfrentamiento_asignado",
-      titulo: "Enfrentamiento programado",
-      mensaje: msg,
-      idTorneo,
-      idEnfrentamiento: slot.idEnfrentamiento,
-    });
-    void notificarJugadoresEquipo(e2, {
-      tipo: "enfrentamiento_asignado",
-      titulo: "Enfrentamiento programado",
-      mensaje: msg,
-      idTorneo,
-      idEnfrentamiento: slot.idEnfrentamiento,
-    });
+    void notificarEnfrentamientoProgramado(slot.idEnfrentamiento);
 
     const autoPar = await intentarEmparejarUltimosDosEquipos(idTorneo);
     if (autoPar) {
+      void notificarEnfrentamientoProgramado(autoPar.idEnfrentamiento);
       const auto = await prisma.enfrentamiento.findUnique({
         where: { idEnfrentamiento: autoPar.idEnfrentamiento },
         include: enfInclude,

@@ -7,6 +7,11 @@ export const registerBodySchema = z.object({
   /** ID del rol global (tabla ROL) elegido en el registro; debe estar en la lista permitida del servidor. */
   idRol: z.coerce.number().int().positive(),
   telefono: z.string().max(20).optional(),
+  nickname: z
+    .string()
+    .max(50)
+    .regex(/^[a-zA-Z0-9_]*$/, "Solo letras, números y guión bajo")
+    .optional(),
 });
 
 export type RegisterBody = z.infer<typeof registerBodySchema>;

@@ -4,6 +4,11 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 
 const router = Router();
 
+router.get(
+  "/no-leidas",
+  authMiddleware,
+  notificacionController.countNoLeidas,
+);
 router.get("/", authMiddleware, notificacionController.listNotificaciones);
 router.get(
   "/preferencias",

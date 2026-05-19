@@ -19,6 +19,7 @@ const ROLES_PERMITIDOS_REGISTRO = new Set([
 const usuarioPublicSelect = {
   idUsuario: true,
   nombre: true,
+  nickname: true,
   email: true,
   telefono: true,
   estado: true,
@@ -115,6 +116,14 @@ export async function register(
         contrasena: hash,
         ...(body.telefono !== undefined
           ? { telefono: body.telefono.trim() || null }
+          : {}),
+        ...(body.nickname !== undefined
+          ? {
+              nickname:
+                body.nickname.trim().length > 0
+                  ? body.nickname.trim()
+                  : null,
+            }
           : {}),
         usuarioRoles: {
           create: {

@@ -10,6 +10,8 @@ datasource db {
 model Usuario {
   idUsuario               Int                        @id @default(autoincrement()) @map("id_usuario")
   nombre                  String                     @db.VarChar(100)
+  /** Nickname global opcional; se usa como capitán al inscribir equipos si no se indica otro. */
+  nickname                String?                    @db.VarChar(50)
   email                   String                     @unique @db.VarChar(150)
   contrasena              String                     @db.VarChar(255)
   telefono                String?                    @db.VarChar(20)
