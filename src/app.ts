@@ -25,8 +25,10 @@ async function start(): Promise<void> {
   const httpServer = http.createServer(app);
   initSocket(httpServer);
 
-  httpServer.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  /** Render/Docker requieren escuchar en todas las interfaces (IPv4); si no, el health check puede fallar. */
+  const host = process.env.HOST ?? "0.0.0.0";
+  httpServer.listen(PORT, host, () => {
+    console.log(`Server running on http://${host}:${PORT}`);
   });
 }
 
