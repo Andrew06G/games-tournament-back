@@ -132,10 +132,111 @@ src/
 | `npm run dev`     | Servidor con recarga (nodemon + tsx) |
 | `npm run build`   | Compila TypeScript a `dist/`   |
 | `npm run start`   | Ejecuta `node dist/src/app.js` |
+| `npm test`        | Ejecuta todas las pruebas unitarias (una vez) |
+| `npm run test:watch` | Pruebas en modo watch (re-ejecuta al guardar) |
+| `npm run test:coverage` | Pruebas + informe de cobertura (V8) |
 | `npm run prisma:generate` | `prisma generate`        |
 | `npm run prisma:migrate`  | `prisma migrate dev`     |
 | `npm run prisma:seed`     | Ejecuta `prisma/seed.ts` |
 | `npm run prisma:studio` | Abre Prisma Studio       |
+
+## Pruebas unitarias
+
+El backend incluye **pruebas unitarias** aisladas (sin levantar el servidor ni conectar a PostgreSQL). Los casos están escritos en **inglés**; los mensajes de error del código de producción pueden seguir en español.
+
+### Framework y versión
+
+| Herramienta | Versión (package.json) | Uso |
+|-------------|------------------------|-----|
+| [Vitest](https://vitest.dev/) | **3.2.4** | Runner de pruebas, aserciones y mocks |
+| `@vitest/coverage-v8` | **3.2.4** | Cobertura de código (provider V8) |
+
+La configuración está en `vitest.config.ts`. Los archivos de prueba viven en `tests/**/*.test.ts` y importan módulos desde `src/`.
+
+### Cómo ejecutarlas
+
+Tras `npm install`:
+
+```bash
+# Todas las pruebas, una sola pasada (CI / verificación local)
+npm test
+
+# Modo desarrollo: re-ejecuta al cambiar archivos
+npm run test:watch
+
+# Cobertura (genera reporte en consola y carpeta coverage/)
+npm run test:coverage
+```
+
+Algunas pruebas de JWT definen variables de entorno de prueba en el propio test (`JWT_SECRET`, `JWT_REFRESH_SECRET`). No hace falta un `.env` completo para `npm test`.
+
+### Pruebas en Docker (`DockerFilePruebas`)
+
+Imagen **Node.js 22** (alineada con el README de requisitos) que, en un solo contenedor:
+
+1. Instala dependencias (`package.json` / `package-lock.json`)
+2. Genera el cliente Prisma (`prisma generate`)
+3. Compila el proyecto (`npm run build` → `dist/`)
+4. Ejecuta pruebas con cobertura (`npm run test:coverage`)
+
+Requisito: **Docker Desktop** (o motor Docker) en ejecución.
+
+```bash
+# Construir (falla el build si alguna prueba falla)
+docker build -f DockerFilePruebas -t games-tournament-back-tests .
+
+# Ver de nuevo el informe de cobertura en consola
+docker run --rm games-tournament-back-tests
+
+# Copiar el reporte HTML al host (carpeta coverage/)
+docker run --rm -v "$(pwd)/coverage:/app/coverage" games-tournament-back-tests
+```
+
+Si `package-lock.json` no incluye aún Vitest, el Dockerfile hace `npm install` como respaldo; para builds reproducibles ejecute `npm install` en local y suba el lock actualizado.
+
+### Estructura de `tests/`
+
+```
+tests/
+├── config/           # corsOrigin
+├── middlewares/      # auth, roles
+├── services/         # bracketAdvance, bracketGenerator (helpers)
+├── utils/            # fechas, JWT, fases, ACL, helpers HTTP
+└── validators/       # esquemas Zod (+ preferencias de notificación)
+```
+
+### Componentes del proyecto que se prueban
+
+| Área en `src/` | Módulo / archivo | Qué se valida |
+|----------------|------------------|---------------|
+| **Utilidades** | `utils/fasesTorneo.ts` | Cupos de bracket, códigos de fase inicial, filtrado de fases desde la inicial |
+| | `utils/dates.ts` | Normalización a inicio de día UTC, parseo de fechas |
+| | `utils/httpError.ts` | Clase de error HTTP con `statusCode` |
+| | `utils/controllerHelpers.ts` | `sendError` (HttpError, Zod, 500) y `parseIdParam` |
+| | `utils/jwtTokens.ts` | Firma y verificación de access/refresh tokens |
+| | `utils/torneoAcl.ts` | Permisos de organizador, líder de equipo y registro de resultados (Prisma mockeado) |
+| **Config** | `config/corsOrigin.ts` | Orígenes permitidos, normalización de URL, modo sin `FRONTEND_URL` |
+| **Validadores (Zod)** | `validators/auth.validator.ts` | Registro, login, refresh |
+| | `validators/torneo.validator.ts` | Crear/actualizar torneo, inscripción de equipo |
+| | `validators/equipo.validator.ts` | Alta de jugador, actualización de equipo |
+| | `validators/jugador.validator.ts` | Actualización de jugador |
+| | `validators/resultado.validator.ts` | Registro de resultado |
+| | `validators/enfrentamiento.validator.ts` | Crear enfrentamiento, asignar slot |
+| **Servicios (lógica)** | `services/notificacion.service.ts` | Solo `preferenciasBodySchema` |
+| | `services/bracketAdvance.service.ts` | Ganador inferido, propagación al siguiente partido, cupos ocupados |
+| | `services/bracketGenerator.service.ts` | `countEmptySlots`, `findNextEmptyPairSlot`, `intentarEmparejarUltimosDosEquipos` (Prisma mockeado) |
+| **Middlewares** | `middlewares/auth.middleware.ts` | Header Bearer, `req.auth`, errores 401 |
+| | `middlewares/role.middleware.ts` | `requireGlobalRoles`, `requireTorneoOrganizerAccess` |
+
+### Qué no cubren estas pruebas (alcance actual)
+
+No hay pruebas unitarias/integración end-to-end para:
+
+- `src/app.ts`, `src/routes/**`, `src/config/database.ts`, `src/config/socket.ts`
+- **Controladores** (`src/controllers/**`)
+- **Servicios completos** que orquestan muchas consultas Prisma (`auth.service`, `torneo.service`, `equipo.service`, `enfrentamiento.service`, `resultado.service`, etc.), salvo los helpers de bracket indicados arriba
+
+Ampliar cobertura a esos módulos suele requerir mocks más profundos de Prisma o pruebas de integración con base de datos de prueba.
 
 ### Torneos, equipos y enfrentamientos (REST)
 
