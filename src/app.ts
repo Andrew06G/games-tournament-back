@@ -2,6 +2,7 @@ import http from "node:http";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import { getCorsOrigin } from "./config/corsOrigin";
 import { getPrisma } from "./config/database";
 import { initSocket } from "./config/socket";
 import apiRoutes from "./routes";
@@ -11,7 +12,7 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-app.use(cors({ origin: process.env.FRONTEND_URL ?? true }));
+app.use(cors({ origin: getCorsOrigin(), credentials: true }));
 app.use(express.json());
 
 app.use("/api", apiRoutes);
